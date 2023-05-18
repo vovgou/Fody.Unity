@@ -23,6 +23,7 @@
  */
 
 using Mono.Cecil;
+using Mono.Cecil.Cil;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -35,6 +36,7 @@ namespace Fody.Unity
 {
     public class WeavingTask : IWeavingTask
     {
+        protected Action<int, string> log;
         protected XElement config;
         protected string assemblyPath;
         protected Func<string, Type> typeFinder;
@@ -43,11 +45,15 @@ namespace Fody.Unity
         protected TypeCache typeCache;
         protected TypeSystem typeSystem;
         protected List<BaseModuleWeaver> weavers = new List<BaseModuleWeaver>();
-        public WeavingTask(string assemblyPath, Func<string, Type> typeFinder, XElement config)
+        public WeavingTask(string assemblyPath, Func<string, Type> typeFinder, XElement config) : this(assemblyPath, typeFinder, config, null)
+        {
+        }
+        public WeavingTask(string assemblyPath, Func<string, Type> typeFinder, XElement config, Action<int, string> log)
         {
             this.assemblyPath = assemblyPath;
             this.typeFinder = typeFinder;
             this.config = config;
+            this.log = log;
         }
 
         public Func<string, Type> TypeFinder
@@ -91,8 +97,18 @@ namespace Fody.Unity
             weaver.Config = config;
             weaver.ModuleDefinition = moduleDefinition;
             weaver.AssemblyFilePath = assemblyPath;
+#pragma warning disable CS0618 
+            weaver.LogDebug = message => log?.Invoke(0, message);
+            weaver.LogInfo = message => log?.Invoke(1, message);
+            weaver.LogWarning = message => log?.Invoke(2, message);
+            weaver.LogError = message => log?.Invoke(3, message);
+            weaver.LogMessage = LogMessage;
+            weaver.LogWarningPoint = LogWarningPoint;
+            weaver.LogErrorPoint = LogErrorPoint;
+
             weaver.FindType = typeCache.FindType;
             weaver.TryFindType = typeCache.TryFindType;
+#pragma warning restore CS0618
             weaver.ResolveAssembly = assemblyResolver.Resolve;
             weaver.AssemblyResolver = assemblyResolver;
             typeCache.BuildAssembliesToScan(weaver);
@@ -104,6 +120,39 @@ namespace Fody.Unity
             {
                 weaver.Execute();
             }
+        }
+
+        void LogMessage(string message, MessageImportance importance)
+        {
+            switch (importance)
+            {
+                case MessageImportance.High:
+                    log?.Invoke(2, message);
+                    break;
+                case MessageImportance.Normal:
+                    log?.Invoke(1, message);
+                    break;
+                case MessageImportance.Low:
+                default:
+                    log?.Invoke(0, message);
+                    break;
+            }
+        }
+
+        void LogWarningPoint(string message, SequencePoint point)
+        {
+            if (point == null)
+                log?.Invoke(2, message);
+            else
+                log?.Invoke(2, string.Format("{0};point.Document.Url:{1}, point.StartLine:{2}, point.StartColumn:{3}, point.EndLine:{4}, point.EndColumn:{5}", message, point.Document.Url, point.StartLine, point.StartColumn, point.EndLine, point.EndColumn));
+        }
+
+        void LogErrorPoint(string message, SequencePoint point)
+        {
+            if (point == null)
+                log?.Invoke(3, message);
+            else
+                log?.Invoke(3, string.Format("{0};point.Document.Url:{1}, point.StartLine:{2}, point.StartColumn:{3}, point.EndLine:{4}, point.EndColumn:{5}", message, point.Document.Url, point.StartLine, point.StartColumn, point.EndLine, point.EndColumn));
         }
 
         protected ModuleDefinition ReadModule(string assemblyFilePath, out bool hasSymbols)
