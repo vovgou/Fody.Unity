@@ -28,6 +28,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Xml;
 using System.Xml.Linq;
 using FieldAttributes = Mono.Cecil.FieldAttributes;
 using TypeAttributes = Mono.Cecil.TypeAttributes;
@@ -98,13 +99,17 @@ namespace Fody.Unity
             weaver.ModuleDefinition = moduleDefinition;
             weaver.AssemblyFilePath = assemblyPath;
 #pragma warning disable CS0618 
-            weaver.LogDebug = message => log?.Invoke(0, message);
-            weaver.LogInfo = message => log?.Invoke(1, message);
-            weaver.LogWarning = message => log?.Invoke(2, message);
-            weaver.LogError = message => log?.Invoke(3, message);
-            weaver.LogMessage = LogMessage;
-            weaver.LogWarningPoint = LogWarningPoint;
-            weaver.LogErrorPoint = LogErrorPoint;
+            var value = config.Attributes("Debug").Select(a => a.Value).SingleOrDefault();
+            if (value != null && XmlConvert.ToBoolean(value))
+            {
+                weaver.LogDebug = message => log?.Invoke(0, message);
+                weaver.LogInfo = message => log?.Invoke(1, message);
+                weaver.LogWarning = message => log?.Invoke(2, message);
+                weaver.LogError = message => log?.Invoke(3, message);
+                weaver.LogMessage = LogMessage;
+                weaver.LogWarningPoint = LogWarningPoint;
+                weaver.LogErrorPoint = LogErrorPoint;
+            }
 
             weaver.FindType = typeCache.FindType;
             weaver.TryFindType = typeCache.TryFindType;
