@@ -65,17 +65,19 @@ namespace Fody.Unity
 
         public bool Execute()
         {
-            this.assemblyResolver = new TestAssemblyResolver();
             bool hasSymbols = false;
-            this.moduleDefinition = ReadModule(assemblyPath, out hasSymbols);
-            if (HasWeavingInfo())
-                return false;
+            using (this.assemblyResolver = new TestAssemblyResolver())
+            using (this.moduleDefinition = ReadModule(assemblyPath, out hasSymbols))
+            {
+                if (HasWeavingInfo())
+                    return false;
 
-            InitializeWeavers();
-            ExecuteWeavers();
-            AddWeavingInfo();
-            WriteModule(assemblyPath, hasSymbols);
-            return true;
+                InitializeWeavers();
+                ExecuteWeavers();
+                AddWeavingInfo();
+                WriteModule(assemblyPath, hasSymbols);
+                return true;
+            }
         }
 
         protected virtual void InitializeWeavers()
