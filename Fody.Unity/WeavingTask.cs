@@ -73,6 +73,9 @@ namespace Fody.Unity
                     return false;
 
                 InitializeWeavers();
+                if (weavers.Count <= 0)
+                    return false;
+
                 ExecuteWeavers();
                 AddWeavingInfo();
                 WriteModule(assemblyPath, hasSymbols);
@@ -91,6 +94,10 @@ namespace Fody.Unity
                 InitializeWeaver(weaver, element);
                 weavers.Add(weaver);
             }
+
+            if (weavers.Count <= 0)
+                return;
+
             typeSystem = new TypeSystem(typeCache.FindType, this.moduleDefinition);
             weavers.ForEach(m => m.TypeSystem = typeSystem);
         }
